@@ -23,7 +23,7 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     max-width: 560px;
     margin: 0 auto;
-    padding: 20px 14px 80px;
+    padding: 20px 14px 110px;
   }
   h1 {
     font-size: 20px;
@@ -232,7 +232,6 @@ function setFilter(t) { filter = t; confirmDel = null; renderTabs(); renderList(
 /* ---------- list ---------- */
 function renderList() {
   const list = document.getElementById("list");
-  document.getElementById("fab").style.display = openId ? "none" : "";
   const items = data.exercises.filter(e => filter === "All" || e.part === filter);
   if (!items.length) {
     list.innerHTML = `<div class="empty">No exercises yet.<br>Tap "+ New Exercise" to start.</div>`;
