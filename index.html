@@ -85,7 +85,7 @@
   .card-body { display: none; padding: 0 14px 14px; }
   .card.open .card-body { display: block; }
 
-  .log-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .log-row { display: flex; gap: 6px; margin-bottom: 12px; }
   .log-row input {
     flex: 1;
     background: var(--card2);
@@ -93,10 +93,12 @@
     border-radius: 10px;
     color: var(--text);
     font-size: 16px;
-    padding: 10px 12px;
+    padding: 10px 8px;
     outline: none;
     min-width: 0;
+    text-align: center;
   }
+  .log-row input.w { flex: 1.4; }
   .log-row input:focus { border-color: var(--accent); }
   .btn {
     background: var(--accent);
@@ -118,6 +120,7 @@
     cursor: pointer;
   }
   .btn-ghost.danger { color: var(--red); }
+  .btn-ghost.danger.armed { background: var(--red); border-color: var(--red); color: #0d0d0f; font-weight: 800; }
 
   svg.chart { width: 100%; height: 140px; display: block; margin-bottom: 10px; }
 
@@ -192,7 +195,7 @@
 <div class="tabs" id="tabs"></div>
 <div id="list"></div>
 
-<button class="fab" onclick="openModal()">+ New Exercise</button>
+<button class="fab" id="fab" onclick="openModal()">+ New Exercise</button>
 
 <div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
   <div class="modal">
@@ -213,6 +216,7 @@ const KEY = "gymLogData";
 let data = JSON.parse(localStorage.getItem(KEY) || '{"exercises":[]}');
 let filter = "All";
 let openId = null;
+let confirmDel = null;
 
 function save() { localStorage.setItem(KEY, JSON.stringify(data)); }
 
@@ -223,7 +227,7 @@ function renderTabs() {
     `<div class="tab ${t === filter ? "active" : ""}" onclick="setFilter('${t}')">${t}</div>`
   ).join("");
 }
-function setFilter(t) { filter = t; renderTabs(); renderList(); }
+function setFilter(t) { filter = t; confirmDel = null; renderTabs(); renderList(); }
 
 /* ---------- list ---------- */
 function renderList() {
@@ -234,7 +238,8 @@ function renderList() {
     return;
   }
   list.innerHTML = items.map(e => {
-    const last = e.logs.length ? e.logs[e.logs.length - 1].weight : null;
+    const lastLog = e.logs.length ? e.logs[e.logs.length - 1] : null;
+    const last = lastLog ? lastLog.weight : null;
     const open = e.id === openId;
     return `
     <div class="card ${open ? "open" : ""}">
@@ -243,24 +248,30 @@ function renderList() {
           <div class="ex-name">${esc(e.name)}</div>
           <div class="ex-part">${e.part}</div>
         </div>
-        <div class="ex-weight">${last !== null ? last + ' <small>kg</small>' : '<small>—</small>'}</div>
+        <div class="ex-weight">${last !== null ? last + ' <small>kg' + srText(lastLog) + '</small>' : '<small>—</small>'}</div>
       </div>
       <div class="card-body">
         <div class="log-row">
-          <input type="number" inputmode="decimal" step="0.5" id="w-${e.id}" placeholder="Weight (kg)"
+          <input type="number" inputmode="decimal" step="0.5" id="w-${e.id}" class="w" placeholder="kg"
+                 onkeydown="if(event.key==='Enter')logWeight('${e.id}')">
+          <input type="number" inputmode="numeric" id="s-${e.id}" placeholder="Sets"
+                 onkeydown="if(event.key==='Enter')logWeight('${e.id}')">
+          <input type="number" inputmode="numeric" id="r-${e.id}" placeholder="Reps"
                  onkeydown="if(event.key==='Enter')logWeight('${e.id}')">
           <button class="btn" onclick="logWeight('${e.id}')">Log</button>
         </div>
         ${chart(e)}
         ${history(e)}
-        <button class="btn-ghost danger" onclick="delExercise('${e.id}')">Delete exercise</button>
+        <button class="btn-ghost danger ${confirmDel === e.id ? "armed" : ""}" onclick="delExercise('${e.id}')">${confirmDel === e.id ? "Tap again to delete" : "Delete exercise"}</button>
       </div>
     </div>`;
   }).join("");
+  document.getElementById("fab").style.display = openId ? "none" : "";
 }
 
 function toggle(id) {
   openId = openId === id ? null : id;
+  confirmDel = null;
   renderList();
   if (openId) setTimeout(() => { const i = document.getElementById("w-" + id); if (i) i.focus(); }, 50);
 }
@@ -294,7 +305,7 @@ function history(e) {
   if (!e.logs.length) return "";
   const rows = e.logs.slice().reverse().slice(0, 15).map((l, i) => {
     const realIdx = e.logs.length - 1 - i;
-    return `<div><span>${l.date}</span><span><b>${l.weight} kg</b> <span class="del" onclick="delLog('${e.id}',${realIdx})">×</span></span></div>`;
+    return `<div><span>${l.date}</span><span><b>${l.weight} kg</b>${srText(l)} <span class="del" onclick="delLog('${e.id}',${realIdx})">×</span></span></div>`;
   }).join("");
   return `<div class="history">${rows}</div>`;
 }
@@ -304,8 +315,14 @@ function logWeight(id) {
   const input = document.getElementById("w-" + id);
   const w = parseFloat(input.value);
   if (isNaN(w) || w <= 0) { input.focus(); return; }
+  const sets = parseInt(document.getElementById("s-" + id).value) || null;
+  const reps = parseInt(document.getElementById("r-" + id).value) || null;
   const e = data.exercises.find(e => e.id === id);
-  e.logs.push({ date: new Date().toISOString().slice(0, 10), weight: w });
+  const log = { date: new Date().toISOString().slice(0, 10), weight: w };
+  if (sets) log.sets = sets;
+  if (reps) log.reps = reps;
+  e.logs.push(log);
+  confirmDel = null;
   save(); renderList();
 }
 
@@ -316,10 +333,14 @@ function delLog(id, idx) {
 }
 
 function delExercise(id) {
-  const e = data.exercises.find(e => e.id === id);
-  if (!confirm(`Delete "${e.name}" and all its records?`)) return;
+  if (confirmDel !== id) {
+    confirmDel = id;
+    renderList();
+    return;
+  }
   data.exercises = data.exercises.filter(e => e.id !== id);
   openId = null;
+  confirmDel = null;
   save(); renderList();
 }
 
@@ -345,6 +366,11 @@ function addExercise() {
 }
 
 function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
+
+function srText(l) {
+  if (!l || (!l.sets && !l.reps)) return "";
+  return ` · ${l.sets || "?"}×${l.reps || "?"}`;
+}
 
 renderTabs();
 renderList();
