@@ -232,6 +232,7 @@ function setFilter(t) { filter = t; confirmDel = null; renderTabs(); renderList(
 /* ---------- list ---------- */
 function renderList() {
   const list = document.getElementById("list");
+  document.getElementById("fab").style.display = openId ? "none" : "";
   const items = data.exercises.filter(e => filter === "All" || e.part === filter);
   if (!items.length) {
     list.innerHTML = `<div class="empty">No exercises yet.<br>Tap "+ New Exercise" to start.</div>`;
@@ -266,7 +267,6 @@ function renderList() {
       </div>
     </div>`;
   }).join("");
-  document.getElementById("fab").style.display = openId ? "none" : "";
 }
 
 function toggle(id) {
